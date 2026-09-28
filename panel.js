@@ -71,12 +71,12 @@ function permMark(r) { return r === 'pending' ? '…' : ( r === true ? '✓' : '
 
 // ---- Why tab ----
 // "declared in": the file FOAM stamped on the axiom (why-backend.js
-// sourceOf), flagged when a refinement rather than the class's own file
-// declared it. Clicking opens that file in the Sources panel at the line that
+// stamp), flagged when a refinement rather than its class's own file
+// declared it, or when it was inherited from a parent class. Clicking opens that file in the Sources panel at the line that
 // names the axiom; the line comes from the page's own copy of the script
 // (getResources, no network, no permission), searched by source-core.js.
-function declCell(file, clsFile, name) {
-  var decl = C.declaredIn(file, clsFile);
+function declCell(g, viewedId) {
+  var name = g.name, decl = C.declaredIn(g.file, g.owner, viewedId);
   if ( ! decl ) return '';
   var a = el('a', 'decl', C.label(decl));
   a.href = '#';
@@ -127,7 +127,7 @@ function renderWhy(w) {
   var body = el('div');
   body.appendChild(table([ 'field', 'final', 'why', 'declared in' ], notRW.map(function(g) {
     return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g),
-             declCell(g.file, w.clsFile, g.name) ];
+             declCell(g, w.cls) ];
   })));
   if ( rw.length ) {
     body.appendChild(section('rw', 'and ' + rw.length + ' read-write', el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')), 'muted'));
@@ -144,7 +144,7 @@ function renderWhy(w) {
     w.actions.length
       ? table([ 'action', 'available', 'enabled', 'why', 'declared in' ], w.actions.map(function(a) {
           return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a),
-                   declCell(a.file, w.clsFile, a.name) ];
+                   declCell(a, w.cls) ];
         }))
       : el('div', 'muted', 'no actions')));
 

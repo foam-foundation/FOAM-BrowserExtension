@@ -61,10 +61,21 @@
   }
 
   // The file URL FOAM stamped on an axiom or model (EndBoot.js:303 on the
-  // model, Boot.js:273 onto each axiom); the panel turns it into "declared
-  // in" (source-core.js). A string or null, so the reply stays JSON.
+  // model, Boot.js:273 onto each axiom). A string or null, so the reply stays
+  // JSON.
   function sourceOf(o) {
     try { return ( o && typeof o.source === 'string' ) ? o.source : null; } catch (e) { return null; }
+  }
+  // Where an axiom came from, for the panel's "declared in" (source-core.js):
+  // its file, and the class it was installed into (sourceCls_, FObject.js:159)
+  // with that class's own file, which tell a refinement and an inherited
+  // field apart from the class's own.
+  function stamp(g, a) {
+    g.file = sourceOf(a);
+    var c = null;
+    try { c = a.sourceCls_ || null; } catch (e) {}
+    g.owner = c ? { id: String(c.id), file: sourceOf(c.model_) } : null;
+    return g;
   }
 
   D.register('why', function() {
@@ -90,8 +101,7 @@
       var g;
       try { g = W.propGate(p, modeName, data, env, listed[p.name] === true); }
       catch (e) { g = W.errGate(p, P.str(e.message, 80)); }
-      g.file = sourceOf(p);
-      return g;
+      return stamp(g, p);
     });
 
     // errors_ is [ propertyAxiom, message ] pairs (Validation.js:476-482)
@@ -108,9 +118,7 @@
     var actions = actionAxioms.map(function(a) {
       var running = false;
       try { running = !! a.getRunning$(data).get(); } catch (e) {}
-      var g = W.actionGate(a, data, env, running);
-      g.file = sourceOf(a);
-      return g;
+      return stamp(W.actionGate(a, data, env, running), a);
     });
 
     // A section is also unavailable when every property in it is HIDDEN and
@@ -137,7 +145,6 @@
     var rec = P.describeRecord(data);
     return {
       cls: rec.cls, id: rec.id, summary: rec.summary, mode: modeName, modeDefaulted: ! mode, source: t.source,
-      clsFile: sourceOf(cls.model_),
       properties: properties, validation: validation, actions: actions, sections: sections,
       permissions: permissions, pending: pending
     };

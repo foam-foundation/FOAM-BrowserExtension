@@ -7,10 +7,13 @@
 // Where a property or action was declared, from the file FOAM stamps on each
 // axiom. foam.CLASS records the loading script's URL on the model
 // (EndBoot.js:303) and the model copies it onto every axiom it installs
-// (Boot.js:273), refinements included. So a field a refinement hid carries
-// the refinement's file, while cls.model_.source keeps naming the base file
-// (Boot.js:126-132 mutates the target class, it never swaps its model). Pure
-// and dual-exported so each rule has a Node test.
+// (Boot.js:273), refinements included. installAxioms also records the class
+// the axiom went into as sourceCls_ (FObject.js:159) — debug.js:159-173
+// describe() prints the same two columns. Together they separate three
+// cases: the class's own field (its file), a refinement (the owner is the
+// class, the file is not the owner's model_.source — Boot.js:126-132 mutates
+// the target, it never swaps its model), and an inherited field (the owner
+// is a parent class). Pure and dual-exported so each rule has a Node test.
 (function(exports) {
   function pathOf(url) {
     var s = String(url).replace(/[?#].*$/, '');
@@ -18,10 +21,12 @@
     return ( m ? m[1] : s ).replace(/^\/+/, '');
   }
 
-  // { url, path, file, refined } for an axiom's source URL, or null when
-  // there is nothing honest to show: no stamp, or a bundled page, where
-  // foam.js:63 maps every class to one /foam-bin*.js file.
-  exports.declaredIn = function(axiomUrl, classUrl) {
+  // { url, path, file, refined, from } for an axiom's source URL, or null
+  // when there is nothing honest to show: no stamp, or a bundled page, where
+  // foam.js:63 maps every class to one /foam-bin*.js file. owner is
+  // { id, file }: the axiom's sourceCls_ and that class's own model_.source.
+  // from is the owner's id when it is not the class on screen (viewedId).
+  exports.declaredIn = function(axiomUrl, owner, viewedId) {
     if ( ! axiomUrl ) return null;
     var path = pathOf(axiomUrl);
     if ( /(^|\/)foam-bin[^\/]*\.js$/.test(path) ) return null;
@@ -29,15 +34,20 @@
       url: axiomUrl,
       path: path,
       file: path.slice(path.lastIndexOf('/') + 1),
-      refined: !! classUrl && pathOf(classUrl) !== path
+      refined: !! ( owner && owner.file ) && pathOf(owner.file) !== path,
+      from: ( owner && owner.id && viewedId && owner.id !== viewedId ) ? owner.id : null
     };
   };
 
   // The "declared in" cell text: the file name, flagged when a refinement
-  // (not the class's own file) declared or last changed the axiom.
+  // rather than the owner's own file declared or last changed the axiom, and
+  // when the owner is a parent class rather than the one on screen.
   exports.label = function(decl) {
     if ( ! decl ) return '';
-    return decl.file + ( decl.refined ? ' (refinement)' : '' );
+    var notes = [];
+    if ( decl.refined ) notes.push('refinement');
+    if ( decl.from ) notes.push('inherited from ' + decl.from.slice(decl.from.lastIndexOf('.') + 1));
+    return decl.file + ( notes.length ? ' (' + notes.join(', ') + ')' : '' );
   };
 
   function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }

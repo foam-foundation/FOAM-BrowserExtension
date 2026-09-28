@@ -119,9 +119,13 @@ screen, not a table screen. Six blocks:
    stays true) — the row says `… denied but write not gated — no effect`.
    The **declared in** column names the file that declared the field, from
    the source URL FOAM stamps on every axiom (`EndBoot.js:303` on the model,
-   `Boot.js:273` onto each axiom). A refinement stamps its own file, so a
-   field a refinement added or changed reads `UserRefinement.js (refinement)`
-   while the class's base file reads plain `User.js`. Clicking opens the file
+   `Boot.js:273` onto each axiom), read with the class the axiom was
+   installed into (`sourceCls_`, `FObject.js:159`) — the same two columns
+   `foam.lang.FObject.describe()` prints (`debug.js:159-173`). A field of the
+   class's own reads plain `User.js`; one a refinement added or changed reads
+   `UserRefinement.js (refinement)`; one inherited from a parent reads
+   `LifecycleAware.js (inherited from LifecycleAware)`, with `refinement,`
+   in front when a refinement of the parent changed it. Clicking opens the file
    in the Sources panel at the line that names the field (`name: 'x'`, or
    `function x(` for a method), found in the page's own copy of the script.
    A field written in shorthand (`'x'` or `[ 'x', value ]`) is not found by
@@ -308,7 +312,7 @@ each file in its own process; the exit code is the number of failing files:
 
 ```bash
 npm test                                        # = node test/run-all.js
-                                                # 8 files, 253 assertions passed
+                                                # 8 files, 257 assertions passed
 ```
 
 Or one at a time:
@@ -321,7 +325,7 @@ node test/backend-test.js        # backend-test: 5 passed
 node test/common-test.js         # common-test: 20 passed
 node test/why-core-test.js       # why-core-test: 47 passed
 node test/why-explain-test.js    # why-explain-test: 36 passed
-node test/source-core-test.js    # source-core-test: 21 passed
+node test/source-core-test.js    # source-core-test: 25 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
