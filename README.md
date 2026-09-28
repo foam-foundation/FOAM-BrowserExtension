@@ -117,6 +117,17 @@ screen, not a table screen. Six blocks:
    One FOAM quirk is called out explicitly: `readPermissionRequired` on its
    own never restricts on the client (write is not gated, so `allowCreate`
    stays true) — the row says `… denied but write not gated — no effect`.
+   The **declared in** column names the file that declared the field, from
+   the source URL FOAM stamps on every axiom (`EndBoot.js:303` on the model,
+   `Boot.js:273` onto each axiom). A refinement stamps its own file, so a
+   field a refinement added or changed reads `UserRefinement.js (refinement)`
+   while the class's base file reads plain `User.js`. Clicking opens the file
+   in the Sources panel at the line that names the field (`name: 'x'`, or
+   `function x(` for a method), found in the page's own copy of the script.
+   A field written in shorthand (`'x'` or `[ 'x', value ]`) is not found by
+   name and the file opens at the top. On a bundled page every class
+   reports one `/foam-bin*.js` file, so the column stays empty rather than
+   name the wrong file. The Actions table has the same column.
 3. **Validation (N failing)** — `obj.errors_`: field, current value, message.
 4. **Actions (N blocked)** — per action: available ✓/✗/…, enabled ✓/✗/…, and
    the gate that failed: `isEnabled → false`, `running`, `user.approve
@@ -297,19 +308,20 @@ each file in its own process; the exit code is the number of failing files:
 
 ```bash
 npm test                                        # = node test/run-all.js
-                                                # 7 files, 227 assertions passed
+                                                # 8 files, 253 assertions passed
 ```
 
 Or one at a time:
 
 ```bash
-node test/shapers-test.js        # shapers-test: 62 passed
+node test/shapers-test.js        # shapers-test: 70 passed
 node test/sidebar-core-test.js   # sidebar-core-test: 15 passed
 node test/tree-core-test.js      # tree-core-test: 39 passed
 node test/backend-test.js        # backend-test: 5 passed
 node test/common-test.js         # common-test: 20 passed
-node test/why-core-test.js       # why-core-test: 40 passed
-node test/why-explain-test.js    # why-explain-test: 34 passed
+node test/why-core-test.js       # why-core-test: 47 passed
+node test/why-explain-test.js    # why-explain-test: 36 passed
+node test/source-core-test.js    # source-core-test: 21 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
@@ -343,6 +355,10 @@ node test/why-explain-test.js    # why-explain-test: 34 passed
    the gate; change the field it depends on, Refresh → flips.
 7. **Open in FOAM.** Why tab → Open in FOAM → the app shows the edit form
    for the record you clicked; Back returns.
+7b. **Declared in.** On a record whose class a refinement changes, the
+   refined field's row reads `<file> (refinement)`; click it → Sources opens
+   that file with the `name: '<field>'` line in view, and the status line
+   reads `<file>:<line>`.
 8. **Comics v3 header (open question).** On an `admin.data` detail screen
    (comics v3), click the Edit/Save/Cancel buttons in Elements: the stack
    shows `ButtonGroup → … → Stack` (they live in the stack header,

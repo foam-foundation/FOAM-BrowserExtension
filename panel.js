@@ -4,7 +4,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore, P = window.__foamShapers;
+var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore, P = window.__foamShapers,
+    C = window.__foamSourceCore;
 
 // All panel state in one object, one render(state) from it.
 // tab: which tab is showing, remembered across panel reopens.
@@ -47,7 +48,11 @@ function table(headers, rows) {
   t.appendChild(tr);
   rows.forEach(function(r) {
     var tr = el('tr');
-    r.forEach(function(c) { tr.appendChild(typeof c === 'string' ? el('td', null, c) : el('td', c.cls, c.text)); });
+    r.forEach(function(c) {
+      var td = typeof c === 'string' ? el('td', null, c) : el('td', c.cls, c.text);
+      if ( c && c.node ) td.appendChild(c.node);
+      tr.appendChild(td);
+    });
     t.appendChild(tr);
   });
   return t;
@@ -65,6 +70,35 @@ function section(key, title, body, cls) {
 function permMark(r) { return r === 'pending' ? '…' : ( r === true ? '✓' : '✗' ); }
 
 // ---- Why tab ----
+// "declared in": the file FOAM stamped on the axiom (why-backend.js
+// sourceOf), flagged when a refinement rather than the class's own file
+// declared it. Clicking opens that file in the Sources panel at the line that
+// names the axiom; the line comes from the page's own copy of the script
+// (getResources, no network, no permission), searched by source-core.js.
+function declCell(file, clsFile, name) {
+  var decl = C.declaredIn(file, clsFile);
+  if ( ! decl ) return '';
+  var a = el('a', 'decl', C.label(decl));
+  a.href = '#';
+  a.title = decl.path + ' — open in Sources';
+  a.addEventListener('click', function(e) { e.preventDefault(); openDecl(decl, name); });
+  return { node: a };
+}
+function openDecl(decl, name) {
+  function open(line, found) {
+    chrome.devtools.panels.openResource(decl.url, Math.max(line, 0), function() {});
+    setStatus(found ? decl.file + ':' + ( line + 1 ) : name + ' not found by name in ' + decl.file + ' — opened at the top');
+  }
+  chrome.devtools.inspectedWindow.getResources(function(resources) {
+    var res = ( resources || [] ).filter(function(r) { return r.url === decl.url; })[0];
+    if ( ! res ) { open(0, false); return; }
+    res.getContent(function(content) {
+      var line = C.declLine(content, name);
+      open(line, line >= 0);
+    });
+  });
+}
+
 var MODE_ORDER = { HIDDEN: 0, RO: 1, DISABLED: 2, ERR: 3, pending: 4, RW: 5 };
 
 function renderWhy(w) {
@@ -91,8 +125,9 @@ function renderWhy(w) {
   var notRW = props.filter(function(g) { return g.final !== 'RW'; });
   var rw    = props.filter(function(g) { return g.final === 'RW'; });
   var body = el('div');
-  body.appendChild(table([ 'field', 'final', 'why' ], notRW.map(function(g) {
-    return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g) ];
+  body.appendChild(table([ 'field', 'final', 'why', 'declared in' ], notRW.map(function(g) {
+    return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g),
+             declCell(g.file, w.clsFile, g.name) ];
   })));
   if ( rw.length ) {
     body.appendChild(section('rw', 'and ' + rw.length + ' read-write', el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')), 'muted'));
@@ -107,8 +142,9 @@ function renderWhy(w) {
   var blocked = w.actions.filter(function(a) { return a.available.value !== true || a.enabled.value !== true; });
   root.appendChild(section('actions', 'Actions (' + blocked.length + ' blocked of ' + w.actions.length + ')',
     w.actions.length
-      ? table([ 'action', 'available', 'enabled', 'why' ], w.actions.map(function(a) {
-          return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a) ];
+      ? table([ 'action', 'available', 'enabled', 'why', 'declared in' ], w.actions.map(function(a) {
+          return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a),
+                   declCell(a.file, w.clsFile, a.name) ];
         }))
       : el('div', 'muted', 'no actions')));
 
