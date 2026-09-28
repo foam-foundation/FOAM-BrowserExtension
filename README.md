@@ -6,9 +6,10 @@ selected DOM node, what each binds (DAO, record, property) and a copyable FOAM
 path; and a **FOAM panel** with two tabs: **Why** explains, for the record on
 screen, why each field is hidden or read-only, what validation is failing, why
 each action is greyed or missing, and which permissions the screen has asked
-for; **Tree** shows the live `u2` view tree of the current screen, and a row
-click selects that element everywhere. It reads the live FOAM registry inside the inspected page and writes
-only: the `$v`/`$d` console handles; the hover outline while a Tree row is
+for; **U2 tree** shows the live `u2` view tree of the whole app with the
+current screen opened and marked, and a row click selects that element
+everywhere. It reads the live FOAM registry inside the inspected page and writes
+only: the `$v`/`$d` console handles; the hover outlines while a U2 tree row is
 hovered; permission checks it asks the app's
 cached auth service (so the "checked" list grows with the panel's own
 questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
@@ -167,13 +168,18 @@ get a `SectionedDetailView` of the object (validates, no Save). Same
 `stack.push(StackBlock)` call the comics controllers make
 (`DAOSummaryView.js:180`). Use the app's Back to return.
 
-## The Tree tab
+## The U2 tree tab
 
-The live u2 view tree of the screen currently shown — the navigation stack's
-current view (`ctrl.stack.current`) down, since `Stack.push` only hides the
-previous view. One row per element: short class name, what it is bound to
+The live u2 view tree of the whole app, from `ctrl` down: the navigation
+bar, side menu, footer and popups (`DesktopStackView` adds a popup to
+`ctrl`, not to the stack) sit next to the screen. The screen itself — the
+navigation stack's current view, `ctrl.stack.current` — is opened however
+deep it sits and tagged `current screen`; below it the same two-level rule
+applies as from the root. The stack view replaces the previous screen on
+navigation (`StackView.js` `listenStackView`, a `dynamic` on the top of the
+stack), so earlier screens are not in the tree. One row per element: short class name, what it is bound to
 (record, DAO, view) and its property when it has one; elements with
-`shown === false` are greyed and tagged `hidden`. `▸`/`▾` toggles a subtree,
+`shown === false` are greyed, tagged `hidden` and start folded. `▸`/`▾` toggles a subtree,
 alt-click toggles the whole branch, **Expand all / Collapse all** the whole
 tree (collapse keeps the root open); the root and two levels below it start
 open, a chain of only children stays open until it branches, plus the path
@@ -187,8 +193,13 @@ A `hidden` tag marks `shown === false`.
 
 Hovering a row outlines that element on the page (a blue box with the class
 name and size — drawn by the page, since Chrome gives extensions no overlay
-API; it is the only DOM the extension adds). It goes away on mouse-out, on
-leaving the Tree tab, when the panel closes — and by itself 2.5 s after the
+API; it is the only DOM the extension adds). Elements bound to it get a
+dashed purple box tagged `bound <Class>`: those whose `data` is the hovered
+view (the `ActionView`s a view renders with `startContext({ data: self })`)
+and those showing the same record (`shapers.boundTo`, at most 50). Hovering
+`LoginView` outlines the form and both of its buttons; sharing a DAO does
+not count as bound. It goes away on mouse-out, on
+leaving the U2 tree tab, when the panel closes — and by itself 2.5 s after the
 panel last repeated the hover (once a second while a row stays hovered), so
 a panel that is hidden or torn down cannot leave it behind. A row
 re-rendered under the pointer by the poll or a toggle fires no mouseleave;
@@ -260,7 +271,7 @@ function. The pure parts (`pathOf`, `shortName`, `layerText`; `flatten`,
 `explainSection`) live in their own files so they have Node tests.
 
 Page-side selection has one owner, `selection-backend.js`: `inspect` (from
-Elements) and `selectUid` (from the Tree tab) hand it the pointed-at element
+Elements) and `selectUid` (from the U2 tree tab) hand it the pointed-at element
 (`D.selectNode(el)`), which builds the named stack itself — one rule for
 both entry points; `why` and `openRecord` ask `D.currentTarget()` — the
 pointed-at element's record while its node is inside the screen
@@ -301,7 +312,7 @@ FOAM's own auth cache entry; the auth itself is a closure argument per call.
   for the rest of that page's life; only pages a FOAM view was opened on
   get it.
 - The tree's uid → element map pins the last snapshot (up to 5000 elements,
-  with their records and DAOs) while the Tree tab shows; leaving the tab or
+  with their records and DAOs) while the U2 tree tab shows; leaving the tab or
   closing the panel releases it. A selected element is released once its
   DOM node leaves the document.
 
@@ -312,15 +323,15 @@ each file in its own process; the exit code is the number of failing files:
 
 ```bash
 npm test                                        # = node test/run-all.js
-                                                # 8 files, 257 assertions passed
+                                                # 8 files, 271 assertions passed
 ```
 
 Or one at a time:
 
 ```bash
-node test/shapers-test.js        # shapers-test: 70 passed
+node test/shapers-test.js        # shapers-test: 77 passed
 node test/sidebar-core-test.js   # sidebar-core-test: 15 passed
-node test/tree-core-test.js      # tree-core-test: 39 passed
+node test/tree-core-test.js      # tree-core-test: 46 passed
 node test/backend-test.js        # backend-test: 5 passed
 node test/common-test.js         # common-test: 20 passed
 node test/why-core-test.js       # why-core-test: 47 passed
@@ -372,12 +383,14 @@ node test/source-core-test.js    # source-core-test: 25 passed
    of `resolveRecord` is what answered; if not, that branch is dead and
    should go (`shapers.js` `resolveRecord`, its test, and this step).
 
-### Smoke checklist — Tree tab
+### Smoke checklist — U2 tree tab
 
-9. Open a record (e.g. `#admin.data/userDAO/1`) → FOAM panel → Tree. Rows
-   show the screen's views; a `DetailView  User #1` row is present.
+9. Open a record (e.g. `#admin.data/userDAO/1`) → FOAM panel → U2 tree.
+   The nav bar and side menu rows are listed; the screen's row is tagged
+   `current screen` and open, with a `DetailView  User #1` row below it.
 10. Hover a `PropertyBorder  prop email` row → a blue box outlines that
-    field on the page, gone on mouse-out. Click the row → DevTools stays on
+    field on the page, gone on mouse-out. Hover the `DetailView` row → its
+    box plus dashed purple `bound …` boxes on the action buttons bound to it. Click the row → DevTools stays on
     the FOAM panel; the sidebar shows its chain, Why still says User #1,
     console `$v` is the PropertyBorder. **Reveal in Elements** → Elements
     tab jumps to its DOM node.
@@ -386,5 +399,5 @@ node test/source-core-test.js    # source-core-test: 25 passed
     opens. Untick **hide wrappers** → `Element`/`SlotNode` rows reappear.
 12. Navigate to another record → tree swaps within a second, selection
     highlight clears.
-13. Select a node in Elements → the Tree tab highlights its row and opens the
+13. Select a node in Elements → the U2 tree tab highlights its row and opens the
     path to it.

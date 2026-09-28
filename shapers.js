@@ -347,6 +347,27 @@
   // list. visit(el, uid), when given, is called once per
   // included node so the caller can keep its own uid -> element map without
   // a second walk.
+  // The elements a hover on `view` also outlines: those whose data is the
+  // view itself (an ActionView under startContext({ data: self })) and those
+  // showing the same record as the view — the "bound to X" and "X — summary"
+  // bindings layerOf reads. A DAO shared by two tables is not a binding, and
+  // wrappers and the view itself are left out. Capped, since every box is a
+  // div drawn on the page.
+  var BOUND_CAP = 50;
+  exports.boundTo = function(view, els) {
+    if ( ! view ) return [];
+    var rec = exports.dataOf(view);
+    if ( rec && ( Array.isArray(rec.childNodes) || exports.isDAO(rec) ) ) rec = null;
+    var out = [];
+    for ( var i = 0 ; i < els.length && out.length < BOUND_CAP ; i++ ) {
+      var e = els[i];
+      if ( e === view || ! e || ! e.cls_ || exports.isWrapper(e.cls_.id) ) continue;
+      var d = exports.dataOf(e);
+      if ( d && ( d === view || ( rec && d === rec ) ) ) out.push(e);
+    }
+    return out;
+  };
+
   exports.treeOf = function(root, cap, visit) {
     cap = cap || 5000;
     var seen = new Set(), count = 0, truncated = false;

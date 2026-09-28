@@ -17,7 +17,7 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foam
 // All survive re-renders because render rebuilds the DOM each time.
 var TAB_KEY = 'foamDevtools.tab', WRAPPERS_KEY = 'foamDevtools.hideWrappers';
 var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
-              tree: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null,
+              tree: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null, current: null,
               hideWrappers: readPref(WRAPPERS_KEY, true) };
 
 function readTab() {
@@ -178,7 +178,7 @@ function renderWhy(w) {
 }
 
 // ---- Tree tab ----
-function treeOpts() { return { hideWrappers: state.hideWrappers }; }
+function treeOpts() { return { hideWrappers: state.hideWrappers, currentUid: state.current }; }
 // Wrapper = one of the framework's raw primitives (shapers.WRAPPER_CLASSES):
 // what a view's render() emits, not a view someone wrote. The same list the
 // sidebar folds. Named here once for every label that mentions it.
@@ -193,7 +193,8 @@ function renderTree() {
   if ( tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + tree.count + ' nodes (capped)'));
   var selectedRow = T.shownUid(tree, state.selected, treeOpts());
   T.flatten(tree, state.expanded, treeOpts()).forEach(function(r) {
-    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ));
+    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ) +
+                        ( r.current ? ' current' : '' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
     row.__uid = r.uid;
@@ -212,7 +213,8 @@ function renderTree() {
     row.appendChild(el('span', 'cls', r.cls));
     if ( r.binding ) row.appendChild(el('span', 'bind', r.binding));
     if ( r.wrapper ) row.appendChild(tag('wrapper', 'framework plumbing (' + WRAPPER_NAMES + '); folded away by "hide wrappers"'));
-    if ( ! r.shown ) row.appendChild(tag('hidden', 'shown === false: rendered but not displayed'));
+    if ( ! r.shown ) row.appendChild(tag('hidden', 'shown === false: rendered but not displayed; starts folded'));
+    if ( r.current ) row.appendChild(tag('current screen', 'the view on top of the navigation stack (ctrl.stack.current)'));
     row.addEventListener('click', function() { selectRow(r.uid); });
     root.appendChild(row);
   });
@@ -227,7 +229,7 @@ function setOpen(uids, open) {
     if ( open ) { state.opened.add(u); state.closed.delete(u); }
     else        { state.closed.add(u); state.opened.delete(u); }
   });
-  state.expanded = T.effectiveExpanded(state.tree, state.selected, state.opened, state.closed);
+  state.expanded = T.effectiveExpanded(state.tree, state.selected, state.opened, state.closed, state.current);
   render(state);
 }
 
@@ -285,10 +287,10 @@ function loadTree() {
     // A new selection must be visible even under a branch the user closed:
     // its ancestors reopen, the node itself keeps the user's toggle.
     if ( r.selected !== state.selected ) T.pathTo(r.tree, r.selected).slice(0, -1).forEach(function(u) { state.closed.delete(u); });
-    state.tree = r.tree; state.selected = r.selected; state.updated = stamp();
+    state.tree = r.tree; state.selected = r.selected; state.current = r.current; state.updated = stamp();
     state.opened = T.pruneExpanded(state.opened, r.tree);
     state.closed = T.pruneExpanded(state.closed, r.tree);
-    state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed);
+    state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed, r.current);
     render(state);
   });
 }

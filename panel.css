@@ -43,6 +43,7 @@ a.decl { color: inherit; text-decoration: underline dotted; white-space: nowrap;
 .node.selected { background: var(--btn-bg); }
 .node.selected .cls { font-weight: 700; }
 .node.hidden { color: var(--muted); }
+.node.current > .cls { font-weight: 700; }
 /* a wrapper row is plumbing: greyed and tagged, so what "hide wrappers" folds is visible before folding */
 .node.wrapper .cls { color: var(--muted); font-style: italic; }
 .tag { color: var(--muted); font-size: 10px; border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-right: 6px; vertical-align: 1px; }
