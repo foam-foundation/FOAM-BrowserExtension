@@ -14,7 +14,7 @@
   // row: its children take its place at its depth, as if it were open — so
   // the tree reads as the views someone wrote. The root is always shown.
   exports.flatten = function(tree, expanded, opts) {
-    var rows = [], hide = !! ( opts && opts.hideWrappers );
+    var rows = [], hide = !! ( opts && opts.hideWrappers ), current = opts && opts.currentUid;
     function walk(n, depth, isRoot) {
       if ( hide && n.wrapper && ! isRoot ) {
         for ( var j = 0 ; j < n.kids.length ; j++ ) walk(n.kids[j], depth, false);
@@ -22,7 +22,8 @@
       }
       var open = expanded.has(n.uid);
       rows.push({ uid: n.uid, depth: depth, cls: S.shortName(n.layer.cls), binding: S.layerText(n.layer),
-                  shown: n.shown, wrapper: n.wrapper, hasKids: exports.hasVisibleKids(n, hide), open: open });
+                  shown: n.shown, wrapper: n.wrapper, hasKids: exports.hasVisibleKids(n, hide), open: open,
+                  current: n.uid === current });
       if ( open ) for ( var i = 0 ; i < n.kids.length ; i++ ) walk(n.kids[i], depth + 1, false);
     }
     if ( tree && tree.root ) walk(tree.root, 0, true);
@@ -90,20 +91,47 @@
 
   // First view of a screen: the root and two levels below it open; below
   // that, a chain of only children stays open until it branches (one row of
-  // wrapping per level would otherwise cost one click per level); plus every
-  // ancestor of the selected node so its row is on screen.
-  exports.defaultExpanded = function(tree, selectedUid) {
+  // wrapping per level would otherwise cost one click per level). The tree
+  // is rooted at the app (ctrl), so the current screen (currentUid, the
+  // stack's view) sits deep: its ancestors open, and the same rule runs again
+  // from it. A hidden view (shown: false) starts folded: its row shows,
+  // greyed, without its subtree. Plus every ancestor of the selected node so
+  // its row is on screen.
+  exports.defaultExpanded = function(tree, selectedUid, currentUid) {
     var set = new Set();
     function open(n, depth) {
+      if ( n.shown === false ) return;
       set.add(n.uid);
       for ( var i = 0 ; i < n.kids.length ; i++ ) {
         if ( depth + 1 <= 2 || n.kids.length === 1 ) open(n.kids[i], depth + 1);
       }
     }
     if ( tree && tree.root ) open(tree.root, 0);
+    var toCurrent = exports.pathTo(tree, currentUid);
+    if ( toCurrent.length ) {
+      toCurrent.slice(0, -1).forEach(function(u) { set.add(u); });
+      open(nodeAt(tree, currentUid), 0);
+    }
     exports.pathTo(tree, selectedUid).slice(0, -1).forEach(function(u) { set.add(u); });
     return set;
   };
+
+  // The stack has a current view but the walk never reached it: tree() walks
+  // from ctrl and stops at its node cap, so on a large app the screen can sit
+  // past it. The panel says so rather than show a tree with no screen.
+  exports.currentMissing = function(tree, currentUid) {
+    if ( ! tree || ! tree.root || currentUid === null || currentUid === undefined ) return false;
+    return exports.pathTo(tree, currentUid).length === 0;
+  };
+
+  function nodeAt(tree, uid) {
+    function find(n) {
+      if ( n.uid === uid ) return n;
+      for ( var i = 0 ; i < n.kids.length ; i++ ) { var f = find(n.kids[i]); if ( f ) return f; }
+      return null;
+    }
+    return find(tree.root);
+  }
 
   // The expanded set with uids that left the tree (navigation, re-render)
   // removed, so the set cannot grow without bound across polls.
@@ -120,8 +148,8 @@
   // detail view that rendered after the first poll, or a new screen, still
   // starts open) plus the nodes the user opened, minus the ones the user
   // closed. opened/closed are the user's toggles, kept across polls.
-  exports.effectiveExpanded = function(tree, selectedUid, opened, closed) {
-    var set = exports.defaultExpanded(tree, selectedUid);
+  exports.effectiveExpanded = function(tree, selectedUid, opened, closed, currentUid) {
+    var set = exports.defaultExpanded(tree, selectedUid, currentUid);
     opened.forEach(function(u) { set.add(u); });
     closed.forEach(function(u) { set.delete(u); });
     return set;

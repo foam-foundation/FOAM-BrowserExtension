@@ -35,9 +35,11 @@
     }
   };
 
-  // The screen: the navigation stack's current view, since Stack.push only
-  // hides the previous one (Stack.js:165-171); ctrl itself for an app with
-  // no stack. Every walk that means "what is on screen" starts here.
+  // The screen: the navigation stack's current view — the stack view
+  // re-renders on every push and replaces the previous screen
+  // (StackView.js:92, a dynamic; Element2.js:308-317) — or ctrl itself for
+  // an app with no stack. Every walk that means "what is on screen" starts
+  // here; the U2 tree alone walks the whole app from ctrl.
   D.screenRoot = function() {
     try { return ( ctrl.stack && ctrl.stack.current ) || ctrl; } catch (e) { return window.ctrl; }
   };
@@ -80,11 +82,10 @@
     window.$d = ( target && target.data ) || undefined;
   };
 
-  // "Still on screen" for a hide-based stack: Stack.push only hide()s the
-  // previous view (Stack.js:165-171, Element2.js:608-613 toggles a class), so
-  // a table row stays in the document after its record is opened.
-  // isConnected alone would keep answering with the row; the node must also
-  // sit inside the screen's DOM.
+  // "Stands for the screen": connected AND inside the screen's DOM. A
+  // pointed-at element outside it but still in the page (nav bar, side menu,
+  // a popup added to ctrl) is connected, so isConnected alone would let it
+  // answer for the screen.
   function onScreen(el) {
     var d = P.own(el, 'element_');
     if ( ! d || ! d.isConnected ) return false;
@@ -101,8 +102,10 @@
   };
 
   // A pointed-at element whose DOM node has left the document is gone for
-  // good (a hidden stack view keeps its node — see onScreen — so that one is
-  // kept for the way back). Dropping it lets the element, its record and $v go.
+  // good: navigating away replaces the screen, so its elements are detached.
+  // One still in the page but outside the screen (nav bar, side menu) is
+  // kept; onScreen decides whether it stands for the screen. Dropping a
+  // detached one lets the element, its record and $v go.
   function forgetDetached() {
     if ( ! pointed.el ) return;
     var d = P.own(pointed.el, 'element_');

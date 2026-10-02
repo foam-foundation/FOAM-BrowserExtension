@@ -45,7 +45,7 @@ t(T.pathTo(tree, 4).join(',') === '1,2,3,4', 'pathTo: root-first path');
 t(T.pathTo(tree, 99).length === 0 && T.pathTo(tree, null).length === 0, 'pathTo: miss / null -> []');
 
 var d0 = T.defaultExpanded(tree, null);
-t(d0.has(1) && d0.has(2) && d0.has(3) && d0.has(5) && d0.has(6) && d0.has(4), 'defaultExpanded: depth 0-2 open; 4 opens as the only child of 3');
+t(d0.has(1) && d0.has(2) && d0.has(3) && d0.has(6) && d0.has(4), 'defaultExpanded: depth 0-2 open; 4 opens as the only child of 3');
 var wide = { root: N(1, 'a', [ N(2, 'b', [ N(3, 'c', [ N(4, 'd'), N(9, 'd2') ]) ]) ]) };
 t(T.defaultExpanded(wide, null).has(3) && ! T.defaultExpanded(wide, null).has(4), 'defaultExpanded: a branch at depth 3 stays closed');
 var chain = { root: N(1, 'a', [ N(2, 'b', [ N(3, 'c', [ N(4, 'd', [ N(5, 'e', [ N(6, 'f'), N(7, 'g') ]) ]) ]) ]) ]) };
@@ -91,5 +91,42 @@ t(eff.has(1) && eff.has(6) && eff.has(4) && ! eff.has(2), 'effectiveExpanded: de
 var late = { root: N(1, 'a', [ N(2, 'b', [ N(7, 'late', [ N(8, 'kid') ]) ]) ]) };
 t(T.effectiveExpanded(late, null, new Set(), new Set()).has(7), 'effectiveExpanded: a node that appeared after the first poll starts open');
 t(! T.effectiveExpanded(tree, 4, new Set(), new Set([ 2 ])).has(2), 'effectiveExpanded: a closed ancestor of the selection stays closed (the panel reopens the path on a new selection)');
+
+// App tree (#5536): rooted at ctrl, so the current screen sits deep and
+// hidden views (shown: false) sit beside it.
+//  1 App
+//  ├─ 2 NavBar ─ 3 Menu
+//  └─ 4 StackView
+//      ├─ 5 Hidden (shown: false) ─ 6 Inner
+//      └─ 7 Wrap
+//          ├─ 8 Side
+//          └─ 9 Current screen
+//              └─ 10 Detail
+//                  ├─ 11 Border ─ 12 Field, 14 Hint
+//                  └─ 13 Border
+var app = { root: N(1, 'com.x.App', [
+  N(2, 'com.x.NavBar', [ N(3, 'com.x.Menu') ]),
+  N(4, 'foam.u2.stack.StackView', [
+    N(5, 'com.x.Hidden', [ N(6, 'com.x.Inner') ], { shown: false }),
+    N(7, 'com.x.Wrap', [ N(8, 'com.x.Side'), N(9, 'com.x.Screen', [
+      N(10, 'foam.u2.detail.DetailView', [ N(11, 'foam.u2.PropertyBorder', [ N(12, 'foam.u2.TextField'), N(14, 'foam.u2.Hint') ]), N(13, 'foam.u2.PropertyBorder') ])
+    ]) ])
+  ])
+]) };
+var da = T.defaultExpanded(app, null, 9);
+t(! da.has(5), 'defaultExpanded: a hidden view (shown: false) starts folded, even within the first two levels');
+t(da.has(1) && da.has(4) && da.has(7) && da.has(9), 'defaultExpanded: every ancestor of the current screen opens, however deep');
+t(da.has(10) && da.has(11) && ! da.has(12), 'defaultExpanded: below the current screen the same two-level rule applies as from the root');
+t(da.has(2), 'defaultExpanded: the app chrome beside the screen (nav bar) still opens from the root rule');
+t(! T.defaultExpanded(app, null, null).has(9), 'defaultExpanded: without a current screen, depth past two stays closed');
+var rowsA = T.flatten(app, da, { currentUid: 9 });
+t(rowsA.filter(function(r) { return r.current; }).map(function(r) { return r.uid; }).join() === '9', 'flatten: the current screen row is marked, and only it');
+t(T.effectiveExpanded(app, null, new Set(), new Set(), 9).has(9), 'effectiveExpanded: passes the current screen through to the defaults');
+
+// The current screen can fall past the node cap (tree() walks from ctrl,
+// nav and menus first): the panel must say so instead of showing no screen.
+t(T.currentMissing(app, 9) === false, 'currentMissing: false when the current screen is in the tree');
+t(T.currentMissing(app, 99) === true, 'currentMissing: true when the stack has a current view the walk never reached');
+t(T.currentMissing(app, null) === false && T.currentMissing(null, 9) === false, 'currentMissing: false with no current view or no tree');
 
 console.log('tree-core-test:', passes, 'passed');

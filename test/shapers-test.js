@@ -279,4 +279,28 @@ t(P.treeOf(shownLazy).root.shown === true, 'treeOf: never reads the shown getter
 
 t(getterReads === 0, 'no test above read a data getter');
 
+// boundTo (#5537): hovering a view also outlines the elements bound to it
+// (data === the view: ActionViews under startContext({ data: self })) and the
+// elements showing the same record; wrappers and the view itself are left out.
+var signIn = { cls_: { id: 'foam.core.auth.SignIn' } };
+var login  = u2('foam.core.auth.LoginView', { data: signIn });
+var form   = u2('foam.u2.detail.VerticalDetailView', { data: signIn });
+var btn1   = u2('foam.u2.ActionView', { data: login });
+var btn2   = u2('foam.u2.ActionView', { data: login });
+var wrapEl = u2('foam.u2.Element', { data: login });
+var other  = u2('foam.u2.ActionView', { data: form });
+var daoV   = { cls_: { id: 'x.DAO' }, select: function() {}, find: function() {}, put: function() {} };
+var tbl1   = u2('foam.u2.table.TableView', { data: daoV });
+var tbl2   = u2('foam.u2.view.ScrollTableView', { data: daoV });
+var all5537 = [ login, form, btn1, btn2, wrapEl, other, tbl1, tbl2 ];
+var b = P.boundTo(login, all5537);
+t(b.indexOf(btn1) >= 0 && b.indexOf(btn2) >= 0, 'boundTo: elements whose data is the view itself (its ActionViews)');
+t(b.indexOf(form) >= 0, 'boundTo: elements showing the same record as the view');
+t(b.indexOf(login) < 0 && b.indexOf(wrapEl) < 0 && b.indexOf(other) < 0, 'boundTo: not the view itself, not wrappers, not views bound to something else');
+t(P.boundTo(tbl1, all5537).length === 0, 'boundTo: sharing a DAO is not a binding — only the view or its record');
+t(P.boundTo(btn1, all5537).length === 0, 'boundTo: an ActionView has nothing bound to it');
+var many = [ login ]; for ( var mi = 0 ; mi < 80 ; mi++ ) many.push(u2('foam.u2.ActionView', { data: login }));
+t(P.boundTo(login, many).length === 50, 'boundTo: capped at 50 so a huge screen cannot flood the page with boxes');
+t(P.boundTo(null, all5537).length === 0, 'boundTo: no view, nothing');
+
 console.log('shapers-test:', passes, 'passed');

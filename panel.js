@@ -4,7 +4,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore, P = window.__foamShapers;
+var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore, P = window.__foamShapers,
+    C = window.__foamSourceCore;
 
 // All panel state in one object, one render(state) from it.
 // tab: which tab is showing, remembered across panel reopens.
@@ -16,7 +17,7 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foam
 // All survive re-renders because render rebuilds the DOM each time.
 var TAB_KEY = 'foamDevtools.tab', WRAPPERS_KEY = 'foamDevtools.hideWrappers';
 var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
-              tree: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null,
+              tree: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null, current: null,
               hideWrappers: readPref(WRAPPERS_KEY, true) };
 
 function readTab() {
@@ -47,7 +48,11 @@ function table(headers, rows) {
   t.appendChild(tr);
   rows.forEach(function(r) {
     var tr = el('tr');
-    r.forEach(function(c) { tr.appendChild(typeof c === 'string' ? el('td', null, c) : el('td', c.cls, c.text)); });
+    r.forEach(function(c) {
+      var td = typeof c === 'string' ? el('td', null, c) : el('td', c.cls, c.text);
+      if ( c && c.node ) td.appendChild(c.node);
+      tr.appendChild(td);
+    });
     t.appendChild(tr);
   });
   return t;
@@ -65,6 +70,35 @@ function section(key, title, body, cls) {
 function permMark(r) { return r === 'pending' ? '…' : ( r === true ? '✓' : '✗' ); }
 
 // ---- Why tab ----
+// "declared in": the file FOAM stamped on the axiom (why-backend.js
+// stamp), flagged when a refinement rather than its class's own file
+// declared it, or when it was inherited from a parent class. Clicking opens that file in the Sources panel at the line that
+// names the axiom; the line comes from the page's own copy of the script
+// (getResources, no network, no permission), searched by source-core.js.
+function declCell(g, viewedId) {
+  var name = g.name, decl = C.declaredIn(g.file, g.owner, viewedId);
+  if ( ! decl ) return '';
+  var a = el('a', 'decl', C.label(decl));
+  a.href = '#';
+  a.title = decl.path + ' — open in Sources';
+  a.addEventListener('click', function(e) { e.preventDefault(); openDecl(decl, name); });
+  return { node: a };
+}
+function openDecl(decl, name) {
+  function open(line, found) {
+    chrome.devtools.panels.openResource(decl.url, Math.max(line, 0), function() {});
+    setStatus(found ? decl.file + ':' + ( line + 1 ) : name + ' not found by name in ' + decl.file + ' — opened at the top');
+  }
+  chrome.devtools.inspectedWindow.getResources(function(resources) {
+    var res = ( resources || [] ).filter(function(r) { return r.url === decl.url; })[0];
+    if ( ! res ) { open(0, false); return; }
+    res.getContent(function(content) {
+      var line = C.declLine(content, name);
+      open(line, line >= 0);
+    });
+  });
+}
+
 var MODE_ORDER = { HIDDEN: 0, RO: 1, DISABLED: 2, ERR: 3, pending: 4, RW: 5 };
 
 function renderWhy(w) {
@@ -91,8 +125,9 @@ function renderWhy(w) {
   var notRW = props.filter(function(g) { return g.final !== 'RW'; });
   var rw    = props.filter(function(g) { return g.final === 'RW'; });
   var body = el('div');
-  body.appendChild(table([ 'field', 'final', 'why' ], notRW.map(function(g) {
-    return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g) ];
+  body.appendChild(table([ 'field', 'final', 'why', 'declared in' ], notRW.map(function(g) {
+    return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g),
+             declCell(g, w.cls) ];
   })));
   if ( rw.length ) {
     body.appendChild(section('rw', 'and ' + rw.length + ' read-write', el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')), 'muted'));
@@ -107,8 +142,9 @@ function renderWhy(w) {
   var blocked = w.actions.filter(function(a) { return a.available.value !== true || a.enabled.value !== true; });
   root.appendChild(section('actions', 'Actions (' + blocked.length + ' blocked of ' + w.actions.length + ')',
     w.actions.length
-      ? table([ 'action', 'available', 'enabled', 'why' ], w.actions.map(function(a) {
-          return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a) ];
+      ? table([ 'action', 'available', 'enabled', 'why', 'declared in' ], w.actions.map(function(a) {
+          return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a),
+                   declCell(a, w.cls) ];
         }))
       : el('div', 'muted', 'no actions')));
 
@@ -142,7 +178,7 @@ function renderWhy(w) {
 }
 
 // ---- Tree tab ----
-function treeOpts() { return { hideWrappers: state.hideWrappers }; }
+function treeOpts() { return { hideWrappers: state.hideWrappers, currentUid: state.current }; }
 // Wrapper = one of the framework's raw primitives (shapers.WRAPPER_CLASSES):
 // what a view's render() emits, not a view someone wrote. The same list the
 // sidebar folds. Named here once for every label that mentions it.
@@ -155,9 +191,13 @@ function renderTree() {
   if ( tree.error ) { root.appendChild(el('div', 'err', tree.error)); return root; }
   if ( ! tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
   if ( tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + tree.count + ' nodes (capped)'));
+  if ( T.currentMissing(tree, state.current) ) {
+    root.appendChild(el('div', 'err', 'the current screen is past the ' + tree.count + '-node cap, so it is not in this tree'));
+  }
   var selectedRow = T.shownUid(tree, state.selected, treeOpts());
   T.flatten(tree, state.expanded, treeOpts()).forEach(function(r) {
-    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ));
+    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ) +
+                        ( r.current ? ' current' : '' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
     row.__uid = r.uid;
@@ -176,7 +216,8 @@ function renderTree() {
     row.appendChild(el('span', 'cls', r.cls));
     if ( r.binding ) row.appendChild(el('span', 'bind', r.binding));
     if ( r.wrapper ) row.appendChild(tag('wrapper', 'framework plumbing (' + WRAPPER_NAMES + '); folded away by "hide wrappers"'));
-    if ( ! r.shown ) row.appendChild(tag('hidden', 'shown === false: rendered but not displayed'));
+    if ( ! r.shown ) row.appendChild(tag('hidden', 'shown === false: rendered but not displayed; starts folded'));
+    if ( r.current ) row.appendChild(tag('current screen', 'the view on top of the navigation stack (ctrl.stack.current)'));
     row.addEventListener('click', function() { selectRow(r.uid); });
     root.appendChild(row);
   });
@@ -191,7 +232,7 @@ function setOpen(uids, open) {
     if ( open ) { state.opened.add(u); state.closed.delete(u); }
     else        { state.closed.add(u); state.opened.delete(u); }
   });
-  state.expanded = T.effectiveExpanded(state.tree, state.selected, state.opened, state.closed);
+  state.expanded = T.effectiveExpanded(state.tree, state.selected, state.opened, state.closed, state.current);
   render(state);
 }
 
@@ -249,10 +290,10 @@ function loadTree() {
     // A new selection must be visible even under a branch the user closed:
     // its ancestors reopen, the node itself keeps the user's toggle.
     if ( r.selected !== state.selected ) T.pathTo(r.tree, r.selected).slice(0, -1).forEach(function(u) { state.closed.delete(u); });
-    state.tree = r.tree; state.selected = r.selected; state.updated = stamp();
+    state.tree = r.tree; state.selected = r.selected; state.current = r.current; state.updated = stamp();
     state.opened = T.pruneExpanded(state.opened, r.tree);
     state.closed = T.pruneExpanded(state.closed, r.tree);
-    state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed);
+    state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed, r.current);
     render(state);
   });
 }
