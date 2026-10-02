@@ -116,6 +116,14 @@
     return set;
   };
 
+  // The stack has a current view but the walk never reached it: tree() walks
+  // from ctrl and stops at its node cap, so on a large app the screen can sit
+  // past it. The panel says so rather than show a tree with no screen.
+  exports.currentMissing = function(tree, currentUid) {
+    if ( ! tree || ! tree.root || currentUid === null || currentUid === undefined ) return false;
+    return exports.pathTo(tree, currentUid).length === 0;
+  };
+
   function nodeAt(tree, uid) {
     function find(n) {
       if ( n.uid === uid ) return n;

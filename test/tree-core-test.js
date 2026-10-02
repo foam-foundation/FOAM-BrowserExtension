@@ -123,4 +123,10 @@ var rowsA = T.flatten(app, da, { currentUid: 9 });
 t(rowsA.filter(function(r) { return r.current; }).map(function(r) { return r.uid; }).join() === '9', 'flatten: the current screen row is marked, and only it');
 t(T.effectiveExpanded(app, null, new Set(), new Set(), 9).has(9), 'effectiveExpanded: passes the current screen through to the defaults');
 
+// The current screen can fall past the node cap (tree() walks from ctrl,
+// nav and menus first): the panel must say so instead of showing no screen.
+t(T.currentMissing(app, 9) === false, 'currentMissing: false when the current screen is in the tree');
+t(T.currentMissing(app, 99) === true, 'currentMissing: true when the stack has a current view the walk never reached');
+t(T.currentMissing(app, null) === false && T.currentMissing(null, 9) === false, 'currentMissing: false with no current view or no tree');
+
 console.log('tree-core-test:', passes, 'passed');

@@ -40,7 +40,7 @@ t(C.declaredIn(BASE + '?v=3#x', USER, USER.id).path === 'foam3/src/foam/core/aut
 
 t(C.declaredIn('http://localhost:8080/foam-bin.js', USER, USER.id) === null, 'declaredIn: a bundled page names one file for every class, so nothing is shown');
 t(C.declaredIn('http://localhost:8080/foam-bin-3.28.1.js', null, null) === null, 'declaredIn: versioned bundle is hidden too');
-t(C.declaredIn(undefined, USER, USER.id) === null && C.declaredIn('', USER, USER.id) === null, 'declaredIn: no source stamp, nothing shown');
+t(C.declaredIn(undefined, null, USER.id) === null && C.declaredIn('', null, USER.id) === null, 'declaredIn: no source stamp and no owner, nothing shown');
 
 var src = [
   "foam.CLASS({",
@@ -74,5 +74,16 @@ t(C.label(C.declaredIn(REF, USER, USER.id)) === 'UserRefinement.js (refinement)'
 t(C.label(C.declaredIn(PARENT, LIFE, USER.id)) === 'LifecycleAware.js (inherited from LifecycleAware)', 'label: an inherited field names the parent');
 t(C.label(C.declaredIn(PREF, LIFE, USER.id)) === 'LifecycleRefinement.js (refinement, inherited from LifecycleAware)', 'label: a refined parent field says both');
 t(C.label(null) === '', 'label: nothing to show is an empty cell');
+
+// Without FOAM's debug flag, source is a plain field on the axiom
+// (debug.js:33-44, 83-93 declare it only under debug), and an overridden or
+// refined property is a clone that drops it (Property.js:714-731). The cell
+// then falls back to the owner's own file and says so.
+var g = C.declaredIn(null, USER, USER.id);
+t(g && g.file === 'User.js' && g.guessed === true && g.refined === false, 'declaredIn: no stamp falls back to the owner\'s file, marked guessed');
+t(C.label(g) === 'User.js (class file)', 'label: a guessed file says it is the class file, not the declaring one');
+t(C.declaredIn(BASE, USER, USER.id).guessed === false, 'declaredIn: a stamped file is not guessed');
+t(C.declaredIn(null, null, USER.id) === null && C.declaredIn(null, { id: USER.id }, USER.id) === null, 'declaredIn: no stamp and no owner file, nothing shown');
+t(C.declaredIn(null, { id: USER.id, file: 'http://localhost:8080/foam-bin.js' }, USER.id) === null, 'declaredIn: the fallback is hidden on a bundled page too');
 
 console.log('source-core-test:', passes, 'passed');

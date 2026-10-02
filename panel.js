@@ -191,6 +191,9 @@ function renderTree() {
   if ( tree.error ) { root.appendChild(el('div', 'err', tree.error)); return root; }
   if ( ! tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
   if ( tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + tree.count + ' nodes (capped)'));
+  if ( T.currentMissing(tree, state.current) ) {
+    root.appendChild(el('div', 'err', 'the current screen is past the ' + tree.count + '-node cap, so it is not in this tree'));
+  }
   var selectedRow = T.shownUid(tree, state.selected, treeOpts());
   T.flatten(tree, state.expanded, treeOpts()).forEach(function(r) {
     var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ) +

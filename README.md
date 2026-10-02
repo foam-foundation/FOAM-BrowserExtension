@@ -130,7 +130,11 @@ screen, not a table screen. Six blocks:
    in the Sources panel at the line that names the field (`name: 'x'`, or
    `function x(` for a method), found in the page's own copy of the script.
    A field written in shorthand (`'x'` or `[ 'x', value ]`) is not found by
-   name and the file opens at the top. On a bundled page every class
+   name and the file opens at the top. The exact file needs FOAM's `debug`
+   flag, which is on by default: without it `source` is a plain field that an
+   overridden or refined property (a clone, `Property.js:714-731`) loses, and
+   the cell falls back to the class's own file, tagged `(class file)`. On a
+   bundled page every class
    reports one `/foam-bin*.js` file, so the column stays empty rather than
    name the wrong file. The Actions table has the same column.
 3. **Validation (N failing)** — `obj.errors_`: field, current value, message.
@@ -177,7 +181,9 @@ navigation stack's current view, `ctrl.stack.current` — is opened however
 deep it sits and tagged `current screen`; below it the same two-level rule
 applies as from the root. The stack view replaces the previous screen on
 navigation (`StackView.js` `listenStackView`, a `dynamic` on the top of the
-stack), so earlier screens are not in the tree. One row per element: short class name, what it is bound to
+stack), so earlier screens are not in the tree. The walk stops at 5000
+nodes; when the current screen lies past that cap the tab says so in red
+instead of showing a tree with no screen. One row per element: short class name, what it is bound to
 (record, DAO, view) and its property when it has one; elements with
 `shown === false` are greyed, tagged `hidden` and start folded. `▸`/`▾` toggles a subtree,
 alt-click toggles the whole branch, **Expand all / Collapse all** the whole
@@ -323,7 +329,7 @@ each file in its own process; the exit code is the number of failing files:
 
 ```bash
 npm test                                        # = node test/run-all.js
-                                                # 8 files, 271 assertions passed
+                                                # 8 files, 279 assertions passed
 ```
 
 Or one at a time:
@@ -331,12 +337,12 @@ Or one at a time:
 ```bash
 node test/shapers-test.js        # shapers-test: 77 passed
 node test/sidebar-core-test.js   # sidebar-core-test: 15 passed
-node test/tree-core-test.js      # tree-core-test: 46 passed
+node test/tree-core-test.js      # tree-core-test: 49 passed
 node test/backend-test.js        # backend-test: 5 passed
 node test/common-test.js         # common-test: 20 passed
 node test/why-core-test.js       # why-core-test: 47 passed
 node test/why-explain-test.js    # why-explain-test: 36 passed
-node test/source-core-test.js    # source-core-test: 25 passed
+node test/source-core-test.js    # source-core-test: 30 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)

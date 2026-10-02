@@ -26,16 +26,23 @@
   // foam.js:63 maps every class to one /foam-bin*.js file. owner is
   // { id, file }: the axiom's sourceCls_ and that class's own model_.source.
   // from is the owner's id when it is not the class on screen (viewedId).
+  // With no stamp on the axiom, the owner's own file stands in, marked
+  // guessed: `source` is a declared property only under FOAM's debug flag
+  // (debug.js:33-44, 83-93), so without it an overridden or refined property
+  // — a clone, Property.js:714-731 — has lost the plain field.
   exports.declaredIn = function(axiomUrl, owner, viewedId) {
-    if ( ! axiomUrl ) return null;
-    var path = pathOf(axiomUrl);
+    var guessed = ! axiomUrl;
+    var url = axiomUrl || ( owner && owner.file );
+    if ( ! url ) return null;
+    var path = pathOf(url);
     if ( /(^|\/)foam-bin[^\/]*\.js$/.test(path) ) return null;
     return {
-      url: axiomUrl,
+      url: url,
       path: path,
       file: path.slice(path.lastIndexOf('/') + 1),
       refined: !! ( owner && owner.file ) && pathOf(owner.file) !== path,
-      from: ( owner && owner.id && viewedId && owner.id !== viewedId ) ? owner.id : null
+      from: ( owner && owner.id && viewedId && owner.id !== viewedId ) ? owner.id : null,
+      guessed: guessed
     };
   };
 
@@ -45,6 +52,7 @@
   exports.label = function(decl) {
     if ( ! decl ) return '';
     var notes = [];
+    if ( decl.guessed ) notes.push('class file');
     if ( decl.refined ) notes.push('refinement');
     if ( decl.from ) notes.push('inherited from ' + decl.from.slice(decl.from.lastIndexOf('.') + 1));
     return decl.file + ( notes.length ? ' (' + notes.join(', ') + ')' : '' );
