@@ -1,0 +1,9 @@
+{
+  "name": "foam-browser-extension",
+  "private": true,
+  "description": "Chrome DevTools extension for inspecting FOAM3 apps at runtime.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node test/run-all.js"
+  }
+}

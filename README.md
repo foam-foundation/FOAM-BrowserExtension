@@ -16,7 +16,7 @@ questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
 ## Install
 
 1. Open `chrome://extensions`, turn on **Developer mode**.
-2. **Load unpacked** → select this folder (`tools/devtools/`).
+2. **Load unpacked** → select this repository's folder.
 3. Open a FOAM3 app page and open DevTools (F12). A **FOAM** pane appears in
    the Elements sidebar next to Styles/Computed, and a **FOAM** tab next to
    Console. The page-world backend is injected the first time either asks
@@ -296,20 +296,20 @@ Pure logic has Node tests with no dependencies. One command runs them all,
 each file in its own process; the exit code is the number of failing files:
 
 ```bash
-npm run test:devtools                           # = node tools/devtools/test/run-all.js
+npm test                                        # = node test/run-all.js
                                                 # 7 files, 227 assertions passed
 ```
 
 Or one at a time:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 62 passed
-node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 15 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 39 passed
-node tools/devtools/test/backend-test.js        # backend-test: 5 passed
-node tools/devtools/test/common-test.js         # common-test: 20 passed
-node tools/devtools/test/why-core-test.js       # why-core-test: 40 passed
-node tools/devtools/test/why-explain-test.js    # why-explain-test: 34 passed
+node test/shapers-test.js        # shapers-test: 62 passed
+node test/sidebar-core-test.js   # sidebar-core-test: 15 passed
+node test/tree-core-test.js      # tree-core-test: 39 passed
+node test/backend-test.js        # backend-test: 5 passed
+node test/common-test.js         # common-test: 20 passed
+node test/why-core-test.js       # why-core-test: 40 passed
+node test/why-explain-test.js    # why-explain-test: 34 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
